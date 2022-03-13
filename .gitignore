@@ -128,6 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-.pkl
-.jpg
-.pth
+clip_feature/model/*
+data/cifar/*
+data/entertain/*
+weight/pretrained_models/*.pth

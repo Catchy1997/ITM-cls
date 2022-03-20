@@ -3,7 +3,7 @@ import os, time, sys
 import shutil
 
 import torch
-print("Torch version:", torch.__version__)
+# print("Torch version:", torch.__version__)
 # from tensorboardX import SummaryWriter
 
 from utils._common import init_logger, logger
@@ -11,20 +11,20 @@ from utils._config import entertain as cfg
 from utils._config import get_argparse
 from utils._mydataset import my_loader, gene_dataloder
 from utils import AverageMeter
-# from utils._metrics import accuracy, adjust_learning_rate, my_criterion
 from utils._metrics import *
 from utils._model_builder import model_builder, save_checkpoint
 from utils._transforms import transform_dict
 from utils.progressbar import ProgressBar
 
-from models.dnn import Net
+from models.dnn import *
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def train(args, train_root, model, metric_fc, transform_dic):
     # load the data
-    train_loader = gene_dataloder(args, data_root=train_root, loader=my_loader)
+    # train_loader = gene_dataloder(args, data_root=train_root, loader=my_loader)
+    train_loader = gene_dataloder(args, data_root=train_root, transform=transform_dict['train'])
 
     # Prepare optimizer
     optimizer = torch.optim.SGD([{'params': model.parameters()}, {'params': metric_fc.parameters()}],
@@ -49,7 +49,7 @@ def train(args, train_root, model, metric_fc, transform_dic):
             outputs_cls, feature = model(img, text)
             outputs_margin = metric_fc(feature, labels)
 
-            loss, l1, l2 = my_criterion(outputs_cls, outputs_margin, labels) # 计算损失值
+            loss, l1, l2 = my_criterion(outputs_cls, outputs_margin, labels, r=args.r) # 计算损失值
             optimizer.zero_grad()
             loss.backward() # loss反向传播 计算反向梯度     
             pbar(step, {'loss': loss.item(), 'loss_cls':l1, 'loss_margin':l2, 'lr': args.lr})     
@@ -64,12 +64,12 @@ def train(args, train_root, model, metric_fc, transform_dic):
                 min_loss = min(loss.item(), min_loss)
                 # save_checkpoint(args, model, global_step, is_best)
                 # args.lr = adjust_learning_rate(args, optimizer, global_step, cfg['epoch_step'], len(train_loader), step)
-    
-    # Evaluation
-    print("\n")
-    eval_loss = evaluate(args, model, metric_fc, transform_dic)
-    print("\n")
-    logger.info(" Eval loss = {:.4f}".format(eval_loss))
+
+        # Evaluation
+        print("\n")
+        eval_loss = evaluate(args, model, metric_fc, transform_dic)
+        print("\n")
+        logger.info(" Eval loss = {:.4f}".format(eval_loss))
 
     if 'cuda' in str(device):
         torch.cuda.empty_cache()
@@ -82,7 +82,8 @@ def evaluate(args, model, metric_fc, transform_dic, val_root=cfg["Valroot"]):
     if not os.path.exists(eval_output_dir):
         os.makedirs(eval_output_dir)
 
-    val_loader = gene_dataloder(args, data_root=val_root, loader=my_loader)
+    # val_loader = gene_dataloder(args, data_root=val_root, loader=my_loader)
+    val_loader = gene_dataloder(args, data_root=val_root, transform=transform_dict['test'])
     criterion = torch.nn.CrossEntropyLoss().cuda()
     
     # Eval!
@@ -90,7 +91,7 @@ def evaluate(args, model, metric_fc, transform_dic, val_root=cfg["Valroot"]):
     logger.info("  Num examples = %d", len(val_loader))
     logger.info("  Batch size = %d", args.batch_size)
     
-    eval_loss, eval_prec, eval_prec_margin = AverageMeter(), AverageMeter(), AverageMeter()
+    eval_loss, eval_prec_cls, eval_prec_margin = AverageMeter(), AverageMeter(), AverageMeter()
     pbar = ProgressBar(n_total=len(val_loader), desc="Evaluating")
     for step, batch in enumerate(val_loader):
         model.eval()
@@ -100,15 +101,14 @@ def evaluate(args, model, metric_fc, transform_dic, val_root=cfg["Valroot"]):
             outputs_cls, feature = model(img, text)
             outputs_margin = metric_fc(feature, labels)
 
-            tmp_eval_loss, l1, l2 = my_criterion(outputs_cls, outputs_margin, labels) # 计算损失值
+            tmp_eval_loss, l1, l2 = my_criterion(outputs_cls, outputs_margin, labels, r=args.r) # 计算损失值
             eval_loss.update(tmp_eval_loss.item(), n=1)
             
-            prec, _ = accuracy(outputs_cls.data, labels, topk=(1, 1))
+            prec_cls, _ = accuracy(outputs_cls.data, labels, topk=(1, 1))
             prec_margin, _ = accuracy(outputs_margin.data, labels, topk=(1, 1))
-            eval_prec.update(prec, n=1)
+            eval_prec_cls.update(prec_cls, n=1)
             eval_prec_margin.update(prec_margin, n=1)
-        pbar(step, {'loss': eval_loss.avg, 'loss_cls':l1, 'loss_margin':l2, 
-                    'precision_cls': eval_prec.avg, 'precision_margin': eval_prec_margin.avg})
+        pbar(step, {'loss': eval_loss.avg, 'precision_cls': eval_prec_cls.avg, 'precision_margin': eval_prec_margin.avg})
     
     return eval_loss.avg
 
@@ -132,7 +132,8 @@ def main():
 
     # Load model
     # net = model_builder(args.model_name, pretrained=True, weight_path=pretrained_model, num_classes=cfg['num_classes'])
-    net = Net(in_shape=1024, num_classes=cfg['num_classes'])
+    # net = Net(in_shape=1024, num_classes=cfg['num_classes'])
+    net = CLIPNet(num_classes=cfg['num_classes'])
     metric_fc = AddMarginProduct(32, cfg['num_classes'], s=30, m=0.35)
     if args.ngpu > 1:
         net = torch.nn.DataParallel(net)

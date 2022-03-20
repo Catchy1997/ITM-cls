@@ -4,7 +4,8 @@ import argparse
 def get_argparse():
     parser = argparse.ArgumentParser(description='Mydataset classification')
     parser.add_argument('--model_name', default='resnet50', help='')
-    parser.add_argument('--batch_size', default=4, type=int, help='Batch size for training')
+    parser.add_argument('--r', default=0.5, type=int, help='')
+    parser.add_argument('--batch_size', default=64, type=int, help='Batch size for training')
     parser.add_argument('--num_workers', default=2, type=int, help='Number of workers used in dataloading')
     parser.add_argument('--cuda', default=True, type=bool, help='Use cuda to train model')
     parser.add_argument('--lr', '--learning-rate', default=0.001, type=float, help='initial learning rate')
@@ -40,15 +41,15 @@ pretrained_dict = {
 }
 
 entertain = {
-    'Trainroot' : "./data/cifar/train",
-    'Valroot' : "./data/cifar/test",
+    'Trainroot' : "./data/entertain/res/train.txt",
+    'Valroot' : "./data/entertain/res/val.txt",
     'pretrained_dict' : pretrained_dict,
     'bgr_means' : (104, 117, 123),
     'img_hw' : (224, 224),
     'start_epoch' : 0,
-    'end_epoch' : 1,
+    'end_epoch' : 2,
     'epoch_step' : [0, 2, 4],
     'output_dir' : './weights/',
-    'num_classes' : 2,
-    'Testroot' : "./data/cifar/test"
+    'num_classes' : 20,
+    'Testroot' : "./data/entertain/res/test.txt"
 }

@@ -20,7 +20,7 @@ transform_dict = {'train': transforms.Compose([transforms.RandomResizedCrop(224)
                                                transforms.RandomHorizontalFlip(), # RandomHorizontalFlip 以给定的概率随机水平翻转给定的PIL图像
                                                transforms.ToTensor(), # ToTensor 把PIL.Image或者numpy.narray数据类型转变为torch.FloatTensor类型
                                                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),]), # Normalize  对每个通道而言执行操作image=(image-mean)/std
-                  'test': transforms.Compose([transforms.Resize(224),
+                  'test': transforms.Compose([transforms.Resize((224,224)),
                                               transforms.ToTensor(),
                                               transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),])}
 
